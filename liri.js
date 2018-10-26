@@ -4,9 +4,15 @@ var fs = require("fs");
 
 var request = require("request");
 
-var moment = require('moment');
+var moment = require("moment");
 
-var breaker = "========================================"
+var keys = require("./keys.js");
+
+var Spotify = require("node-spotify-api");
+
+var spotify = new Spotify(keys.spotify);
+
+var breaker = "\n========================================\n\n"
 
 function liriCase(action, value) {
     switch (action) {
@@ -30,16 +36,6 @@ function liriCase(action, value) {
             console.log("error");
             break;
     }
-
-    fs.appendFile("log.txt", action + "," + value, function (err) {
-
-        if (err) {
-            return console.log(err);
-        }
-
-        console.log("log.txt was updated!");
-
-    });
 }
 
 liriCase(process.argv[2], process.argv[3]);
@@ -49,12 +45,20 @@ function BandsSearch(bandsName) {
 
         if (!error && response.statusCode === 200) {
             var objectBody = JSON.parse(body);
+
+            var bandData = [];
+
             for (i = 0; i < objectBody.length; i++) {
-                console.log(breaker);
-                console.log("Venue: " + objectBody[i].venue.name);
-                console.log("City: " + objectBody[i].venue.city + ", " + objectBody[i].venue.country);
-                console.log(moment(objectBody[i].datetime).format("MM/DD/YY"));
+                bandData.push("Venue: " + objectBody[i].venue.name);
+                bandData.push("City: " + objectBody[i].venue.city + ", " + objectBody[i].venue.country);
+                bandData.push(moment(objectBody[i].datetime).format("MM/DD/YY"));
             }
+
+            fs.appendFile("log.txt", bandData + breaker, function(err) {
+                if (err) throw err;
+                console.log(bandData);
+              });
+        
         } else {
             console.log(error);
         }
@@ -66,16 +70,23 @@ function OmdbSearch(movieName) {
 
         if (!error && response.statusCode === 200 && movieName != undefined) {
 
-            console.log(breaker);
+            var jsonData = JSON.parse(body);
 
-            console.log("Title: " + JSON.parse(body).Title);
-            console.log("Year Released: " + JSON.parse(body).Year);
-            console.log("IMDB Rating: " + JSON.parse(body).imdbRating);
-            console.log("Rotten Tomatoes Rating: " + JSON.parse(body).Ratings[1].value);
-            console.log("Country: " + JSON.parse(body).Country);
-            console.log("Language: " + JSON.parse(body).Language);
-            console.log("Plot Summary: " + JSON.parse(body).Plot);
-            console.log("Actors: " + JSON.parse(body).Actors);
+            var movieData = [
+                "Title: " + jsonData.Title,
+                "Year Released: " + jsonData.Year,
+                "IMDB Rating: " + jsonData.imdbRating,
+                "Rotten Tomatoes Rating: " + jsonData.Ratings[1].value,
+                "Country: " + jsonData.Country,
+                "Language: " + jsonData.Language,
+                "Plot Summary: " + jsonData.Plot,
+                "Actors: " + jsonData.Actors
+            ].join("\n\n");
+
+            fs.appendFile("log.txt", movieData + breaker, function(err) {
+                if (err) throw err;
+                console.log(movieData);
+              });
         } else {
             movieName = "Nobody's Fool"
             OmdbSearch(movieName);
@@ -88,37 +99,42 @@ function SpotifySearch(songName) {
         songName = "The Sign"
         SpotifySearch(songName);
     } else {
-        spotify.search({ type: 'track', query: songName })
-            .then(function (response) {
-                var trackItems = response.tracks.items[0];
-                var songData = ""
-                songData += breaker + "\n";
-                songData += "Song: " + trackItems.name + "\n";
-                songData += "Artist: " + trackItems.artists.map(artist => artist.name).join(", ") + "\n";
-                songData += "URL: " + trackItems.album.external_urls.spotify + "\n";
-                songData += "Album: " + trackItems.album.name;
-                console.log(songData)
-            }).catch(function (err) {
-                console.log(err);
+        spotify.search({ type: 'track', query: songName }).then(function (response) {
+            var trackItems = response.tracks.items[0];
 
-            });
+            var songshow = [
+            "Song: " + trackItems.name,
+            "Artist: " + trackItems.artists.map(artist => artist.name).join(", "),
+            "URL: " + trackItems.album.external_urls.spotify,
+            "Album: " + trackItems.album.name
+            ].join("\n\n");
+
+            fs.appendFile("log.txt", songshow + breaker, function(err) {
+                if (err) throw err;
+                console.log(songshow);
+              });
+
+        }).catch(function (err) {
+            console.log(err);
+
+        });
     }
 }
 
 function TextFile(fileName) {
-    fs.readFile(fileName, "utf8", function(error, data) {
+    fs.readFile(fileName, "utf8", function (error, data) {
 
         if (error) {
-          return console.log(error);
+            return console.log(error);
         }
-      
+
         console.log(data);
-      
+
         var dataArr = data.split(",");
-      
+
         console.log(dataArr);
 
-        liriCase(dataArr[0], dataArr[1]);        
+        liriCase(dataArr[0], dataArr[1]);
 
-      });
+    });
 }
